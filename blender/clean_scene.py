@@ -1,4 +1,6 @@
 import bpy
+import random
+import math
 
 # --- Scene Cleaning ---
 # Ensure we are in Object Mode
@@ -36,3 +38,37 @@ ground_plane.name = "GroundPlane"
 ground_plane.scale = (100, 100, 1)
 
 print("Ground plane created.")
+
+
+# --- Lighting Setup ---
+# Create a light source, like a "Sun" lamp
+print("Creating and configuring a Sun light...")
+bpy.ops.object.light_add(
+    type='SUN',
+    radius=1,
+    align='WORLD',
+    location=(0, 0, 5) # Position it above the ground plane
+)
+sun_light = bpy.context.active_object
+sun_light.name = "SunLight"
+
+# Access the light data
+light_data = sun_light.data
+
+# Randomize its rotation slightly. We'll set a base angle and add some randomness.
+# The sun will generally point from a 45-degree angle on the X-axis.
+base_x_rot_deg = 45
+random_x_rot_deg = random.uniform(-15, 15)
+sun_light.rotation_euler.x = math.radians(base_x_rot_deg + random_x_rot_deg)
+
+random_y_rot_deg = random.uniform(-15, 15)
+sun_light.rotation_euler.y = math.radians(random_y_rot_deg)
+
+# Randomize Z rotation (spin) more freely
+sun_light.rotation_euler.z = random.uniform(0, math.pi * 2) # Full 360 degrees
+
+# Randomize its energy (brightness) slightly.
+# A typical sun energy is > 1. Let's use a range from 2.5 to 5.0.
+light_data.energy = random.uniform(2.5, 5.0)
+
+print("Sun light created with randomized properties.")
