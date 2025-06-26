@@ -172,6 +172,9 @@ bpy.ops.object.camera_add(location=(0, 0, 0))
 camera = bpy.context.active_object
 camera.name = "SceneCamera"
 
+# FIX: Set this new camera as the active scene camera
+bpy.context.scene.camera = camera
+
 bpy.ops.object.empty_add(location=(0, 0, 0))
 track_target = bpy.context.active_object
 track_target.name = "TrackTarget"
