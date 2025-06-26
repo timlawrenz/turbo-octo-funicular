@@ -4,222 +4,180 @@ import math
 import json
 import os
 
-# --- Scene Cleaning ---
-# Ensure we are in Object Mode
-if bpy.context.active_object and bpy.context.active_object.mode == 'EDIT':
-    bpy.ops.object.mode_set(mode='OBJECT')
+def generate_scenes():
+    """
+    Main function to generate a number of scenes.
+    """
+    # Set the total number of scenes to generate.
+    # Increase this value to create a large dataset.
+    num_scenes_to_generate = 10
 
-# Deselect all objects
-bpy.ops.object.select_all(action='DESELECT')
+    for scene_idx in range(num_scenes_to_generate):
+        print(f"--- Starting generation for scene {scene_idx + 1}/{num_scenes_to_generate} ---")
 
-# Select all objects in the scene
-for obj in bpy.data.objects:
-    obj.select_set(True)
+        # --- Scene Cleaning ---
+        # Ensure we are in Object Mode
+        if bpy.context.active_object and bpy.context.active_object.mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='OBJECT')
 
-# Delete all selected objects
-if bpy.context.selected_objects:
-    bpy.ops.object.delete()
+        # Select all objects in the scene
+        bpy.ops.object.select_all(action='SELECT')
+        # Delete all selected objects (meshes, cameras, lights, etc.)
+        if bpy.context.selected_objects:
+            bpy.ops.object.delete()
 
-print("All scene objects deleted.")
+        # Purge orphaned data blocks (materials, meshes, etc.) to keep the file clean
+        for block in bpy.data.materials:
+            if block.users == 0:
+                bpy.data.materials.remove(block)
+        
+        for block in bpy.data.meshes:
+            if block.users == 0:
+                bpy.data.meshes.remove(block)
 
-
-# --- Stage Creation ---
-# Create a large ground plane that will serve as our stage
-print("Creating a large ground plane...")
-bpy.ops.mesh.primitive_plane_add(
-    size=1,
-    enter_editmode=False,
-    align='WORLD',
-    location=(0, 0, 0)
-)
-# The new plane is now the active object
-ground_plane = bpy.context.active_object
-ground_plane.name = "GroundPlane"
-
-# Scale the plane to make it large
-ground_plane.scale = (100, 100, 1)
-
-print("Ground plane created.")
+        print("All scene objects and data purged.")
 
 
-# --- Lighting Setup ---
-# Create a light source, like a "Sun" lamp
-print("Creating and configuring a Sun light...")
-bpy.ops.object.light_add(
-    type='SUN',
-    radius=1,
-    align='WORLD',
-    location=(0, 0, 5) # Position it above the ground plane
-)
-sun_light = bpy.context.active_object
-sun_light.name = "SunLight"
-
-# Access the light data
-light_data = sun_light.data
-
-# Randomize its rotation slightly. We'll set a base angle and add some randomness.
-# The sun will generally point from a 45-degree angle on the X-axis.
-base_x_rot_deg = 45
-random_x_rot_deg = random.uniform(-15, 15)
-sun_light.rotation_euler.x = math.radians(base_x_rot_deg + random_x_rot_deg)
-
-random_y_rot_deg = random.uniform(-15, 15)
-sun_light.rotation_euler.y = math.radians(random_y_rot_deg)
-
-# Randomize Z rotation (spin) more freely
-sun_light.rotation_euler.z = random.uniform(0, math.pi * 2) # Full 360 degrees
-
-# Randomize its energy (brightness) slightly.
-# A typical sun energy is > 1. Let's use a range from 2.5 to 5.0.
-light_data.energy = random.uniform(2.5, 5.0)
-
-print("Sun light created with randomized properties.")
+        # --- Stage Creation ---
+        # Create a large ground plane that will serve as our stage
+        print("Creating a large ground plane...")
+        bpy.ops.mesh.primitive_plane_add(
+            size=1,
+            enter_editmode=False,
+            align='WORLD',
+            location=(0, 0, 0)
+        )
+        ground_plane = bpy.context.active_object
+        ground_plane.name = "GroundPlane"
+        ground_plane.scale = (100, 100, 1)
+        print("Ground plane created.")
 
 
-# --- Object Creation ---
-print("Creating and placing random objects...")
-
-# This dictionary will hold all the ground truth data.
-scene_data = {
-    'objects': [],
-    'camera_poses': []
-}
-
-object_types = ['CUBE', 'SPHERE', 'PYRAMID']
-num_objects = random.randint(1, 3)
-
-for i in range(num_objects):
-    # Choose a random object type
-    obj_type = random.choice(object_types)
-
-    # Create the object at the origin first
-    if obj_type == 'CUBE':
-        bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
-    elif obj_type == 'SPHERE':
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(0, 0, 0))
-    elif obj_type == 'PYRAMID':
-        # A cone with 4 vertices is a pyramid
-        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=1, depth=2, location=(0, 0, 0))
-
-    obj = bpy.context.active_object
-    obj.name = f"{obj_type.capitalize()}_{i+1}"
-    
-    # --- Randomize Scale and Rotation ---
-    s = random.uniform(0.8, 1.5)
-    obj.scale = (s, s, s)
-    
-    obj.rotation_euler.x = random.uniform(0, 2 * math.pi)
-    obj.rotation_euler.y = random.uniform(0, 2 * math.pi)
-    obj.rotation_euler.z = random.uniform(0, 2 * math.pi)
-    
-    # --- Correct Placement on Ground Plane ---
-    # Force an update of the scene to apply transformations before getting vertex data
-    bpy.context.view_layer.update()
-    
-    # Get the object's vertices in world coordinates
-    matrix_world = obj.matrix_world
-    world_vertices = [matrix_world @ v.co for v in obj.data.vertices]
-    
-    # Find the lowest Z point after all transformations
-    lowest_z = min(v.z for v in world_vertices)
-    
-    # Set the final location
-    # Keep objects clustered closer to the center of the scene
-    random_x = random.uniform(-10, 10)
-    random_y = random.uniform(-10, 10)
-    # Adjust Z to place the object's lowest point on the ground plane (Z=0)
-    obj.location = (random_x, random_y, -lowest_z)
-
-    # --- Record Ground Truth Data ---
-    object_info = {
-        'object_type': obj_type,
-        # Convert Blender's mathutils types to standard Python lists for JSON serialization
-        'location': list(obj.location),
-        'rotation': list(obj.rotation_euler),
-        'scale': list(obj.scale)
-    }
-    scene_data['objects'].append(object_info)
-
-    # --- Create and assign a random material ---
-    mat = bpy.data.materials.new(name=f"RandomMat_{i+1}")
-    mat.use_nodes = True
-    principled_bsdf = mat.node_tree.nodes.get('Principled BSDF')
-    if principled_bsdf:
-        # Assign a random RGB color
-        principled_bsdf.inputs['Base Color'].default_value = (random.random(), random.random(), random.random(), 1)
-    
-    # Assign material to the object
-    obj.data.materials.append(mat)
-    
-    print(f"Created {obj.name} with a random color, scale, and rotation.")
-
-print(f"Finished creating {num_objects} objects.")
+        # --- Lighting Setup ---
+        print("Creating and configuring a Sun light...")
+        bpy.ops.object.light_add(type='SUN', radius=1, align='WORLD', location=(0, 0, 5))
+        sun_light = bpy.context.active_object
+        sun_light.name = "SunLight"
+        light_data = sun_light.data
+        base_x_rot_deg = 45
+        random_x_rot_deg = random.uniform(-15, 15)
+        sun_light.rotation_euler.x = math.radians(base_x_rot_deg + random_x_rot_deg)
+        random_y_rot_deg = random.uniform(-15, 15)
+        sun_light.rotation_euler.y = math.radians(random_y_rot_deg)
+        sun_light.rotation_euler.z = random.uniform(0, math.pi * 2)
+        light_data.energy = random.uniform(2.5, 5.0)
+        print("Sun light created with randomized properties.")
 
 
-# --- Camera, Rendering, and Pose Saving ---
-print("Setting up camera and rendering...")
-# Create a directory for this scene's output
-# NOTE: This path is relative to where Blender is launched.
-output_dir = "output/scene_0001"
-os.makedirs(output_dir, exist_ok=True)
+        # --- Object Creation ---
+        print("Creating and placing random objects...")
+        scene_data = {'objects': [], 'camera_poses': []}
+        object_types = ['CUBE', 'SPHERE', 'PYRAMID']
+        num_objects = random.randint(1, 3)
 
-# Basic render settings
-bpy.context.scene.render.image_settings.file_format = 'PNG'
-bpy.context.scene.render.resolution_x = 512
-bpy.context.scene.render.resolution_y = 512
+        for i in range(num_objects):
+            obj_type = random.choice(object_types)
 
-# Create camera and an empty for it to track
-bpy.ops.object.camera_add(location=(0, 0, 0))
-camera = bpy.context.active_object
-camera.name = "SceneCamera"
+            if obj_type == 'CUBE':
+                bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
+            elif obj_type == 'SPHERE':
+                bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(0, 0, 0))
+            elif obj_type == 'PYRAMID':
+                bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=1, depth=2, location=(0, 0, 0))
 
-# FIX: Set this new camera as the active scene camera
-bpy.context.scene.camera = camera
+            obj = bpy.context.active_object
+            obj.name = f"{obj_type.capitalize()}_{i+1}"
+            
+            s = random.uniform(0.8, 1.5)
+            obj.scale = (s, s, s)
+            obj.rotation_euler.x = random.uniform(0, 2 * math.pi)
+            obj.rotation_euler.y = random.uniform(0, 2 * math.pi)
+            obj.rotation_euler.z = random.uniform(0, 2 * math.pi)
+            
+            bpy.context.view_layer.update()
+            matrix_world = obj.matrix_world
+            world_vertices = [matrix_world @ v.co for v in obj.data.vertices]
+            lowest_z = min(v.z for v in world_vertices)
+            
+            random_x = random.uniform(-10, 10)
+            random_y = random.uniform(-10, 10)
+            obj.location = (random_x, random_y, -lowest_z)
 
-bpy.ops.object.empty_add(location=(0, 0, 0))
-track_target = bpy.context.active_object
-track_target.name = "TrackTarget"
+            object_info = {
+                'object_type': obj_type,
+                'location': list(obj.location),
+                'rotation': list(obj.rotation_euler),
+                'scale': list(obj.scale)
+            }
+            scene_data['objects'].append(object_info)
 
-constraint = camera.constraints.new(type='TRACK_TO')
-constraint.target = track_target
-constraint.track_axis = 'TRACK_NEGATIVE_Z'
-constraint.up_axis = 'UP_Y'
+            mat = bpy.data.materials.new(name=f"RandomMat_{scene_idx}_{i+1}")
+            mat.use_nodes = True
+            principled_bsdf = mat.node_tree.nodes.get('Principled BSDF')
+            if principled_bsdf:
+                principled_bsdf.inputs['Base Color'].default_value = (random.random(), random.random(), random.random(), 1)
+            obj.data.materials.append(mat)
+            
+            print(f"Created {obj.name} with a random color, scale, and rotation.")
 
-# Define the circular path for the camera
-num_frames = 16
-# Pull the camera back and up slightly to better frame the clustered objects
-radius = 25
-z_height = 12
+        print(f"Finished creating {num_objects} objects.")
 
-for i in range(num_frames):
-    angle = (i / num_frames) * 2 * math.pi
-    x = radius * math.cos(angle)
-    y = radius * math.sin(angle)
-    camera.location = (x, y, z_height)
-    
-    # Update scene to apply transformations and constraints
-    bpy.context.view_layer.update()
-    
-    # Define file path for the render
-    frame_filepath = os.path.join(output_dir, f"frame_{i:02d}.png")
-    bpy.context.scene.render.filepath = frame_filepath
-    
-    # Save camera pose to the dictionary
-    pose_info = {
-        'location': list(camera.location),
-        'rotation': list(camera.rotation_euler),
-        'image_path': frame_filepath
-    }
-    scene_data['camera_poses'].append(pose_info)
-    
-    # Render the scene
-    bpy.ops.render.render(write_still=True)
-    print(f"Rendered frame {i+1}/{num_frames} to {frame_filepath}")
 
-# --- Export Ground Truth Data ---
-print("Exporting scene data to JSON...")
-json_filepath = os.path.join(output_dir, 'scene_data.json')
-with open(json_filepath, 'w') as f:
-    json.dump(scene_data, f, indent=4)
+        # --- Camera, Rendering, and Pose Saving ---
+        print("Setting up camera and rendering...")
+        output_dir = f"output/scene_{scene_idx:04d}"
+        os.makedirs(output_dir, exist_ok=True)
 
-print(f"Scene data saved to {json_filepath}")
+        bpy.context.scene.render.image_settings.file_format = 'PNG'
+        bpy.context.scene.render.resolution_x = 512
+        bpy.context.scene.render.resolution_y = 512
+
+        bpy.ops.object.camera_add(location=(0, 0, 0))
+        camera = bpy.context.active_object
+        camera.name = "SceneCamera"
+        bpy.context.scene.camera = camera
+
+        bpy.ops.object.empty_add(location=(0, 0, 0))
+        track_target = bpy.context.active_object
+        track_target.name = "TrackTarget"
+        constraint = camera.constraints.new(type='TRACK_TO')
+        constraint.target = track_target
+        constraint.track_axis = 'TRACK_NEGATIVE_Z'
+        constraint.up_axis = 'UP_Y'
+
+        num_frames = 16
+        radius = 25
+        z_height = 12
+
+        for i in range(num_frames):
+            angle = (i / num_frames) * 2 * math.pi
+            x = radius * math.cos(angle)
+            y = radius * math.sin(angle)
+            camera.location = (x, y, z_height)
+            
+            bpy.context.view_layer.update()
+            
+            frame_filepath = os.path.join(output_dir, f"frame_{i:02d}.png")
+            bpy.context.scene.render.filepath = frame_filepath
+            
+            pose_info = {
+                'location': list(camera.location),
+                'rotation': list(camera.rotation_euler),
+                'image_path': frame_filepath
+            }
+            scene_data['camera_poses'].append(pose_info)
+            
+            bpy.ops.render.render(write_still=True)
+            print(f"Rendered frame {i+1}/{num_frames} to {frame_filepath}")
+
+        # --- Export Ground Truth Data ---
+        json_filepath = os.path.join(output_dir, 'scene_data.json')
+        with open(json_filepath, 'w') as f:
+            json.dump(scene_data, f, indent=4)
+
+        print(f"Scene data saved to {json_filepath}")
+        print(f"--- Finished scene {scene_idx + 1}/{num_scenes_to_generate} ---")
+
+# Run the main function when the script is executed
+if __name__ == '__main__':
+    generate_scenes()
