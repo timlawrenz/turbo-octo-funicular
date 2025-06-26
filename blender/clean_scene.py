@@ -2,6 +2,7 @@ import bpy
 import random
 import math
 import json
+import os
 
 # --- Scene Cleaning ---
 # Ensure we are in Object Mode
@@ -80,7 +81,8 @@ print("Creating and placing random objects...")
 
 # This dictionary will hold all the ground truth data.
 scene_data = {
-    'objects': []
+    'objects': [],
+    'camera_poses': []
 }
 
 object_types = ['CUBE', 'SPHERE', 'PYRAMID']
@@ -153,11 +155,66 @@ for i in range(num_objects):
 print(f"Finished creating {num_objects} objects.")
 
 
+# --- Camera, Rendering, and Pose Saving ---
+print("Setting up camera and rendering...")
+# Create a directory for this scene's output
+# NOTE: This path is relative to where Blender is launched.
+output_dir = "output/scene_0001"
+os.makedirs(output_dir, exist_ok=True)
+
+# Basic render settings
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+
+# Create camera and an empty for it to track
+bpy.ops.object.camera_add(location=(0, 0, 0))
+camera = bpy.context.active_object
+camera.name = "SceneCamera"
+
+bpy.ops.object.empty_add(location=(0, 0, 0))
+track_target = bpy.context.active_object
+track_target.name = "TrackTarget"
+
+constraint = camera.constraints.new(type='TRACK_TO')
+constraint.target = track_target
+constraint.track_axis = 'TRACK_NEGATIVE_Z'
+constraint.up_axis = 'UP_Y'
+
+# Define the circular path for the camera
+num_frames = 16
+radius = 20
+z_height = 10
+
+for i in range(num_frames):
+    angle = (i / num_frames) * 2 * math.pi
+    x = radius * math.cos(angle)
+    y = radius * math.sin(angle)
+    camera.location = (x, y, z_height)
+    
+    # Update scene to apply transformations and constraints
+    bpy.context.view_layer.update()
+    
+    # Define file path for the render
+    frame_filepath = os.path.join(output_dir, f"frame_{i:02d}.png")
+    bpy.context.scene.render.filepath = frame_filepath
+    
+    # Save camera pose to the dictionary
+    pose_info = {
+        'location': list(camera.location),
+        'rotation': list(camera.rotation_euler),
+        'image_path': frame_filepath
+    }
+    scene_data['camera_poses'].append(pose_info)
+    
+    # Render the scene
+    bpy.ops.render.render(write_still=True)
+    print(f"Rendered frame {i+1}/{num_frames} to {frame_filepath}")
+
 # --- Export Ground Truth Data ---
 print("Exporting scene data to JSON...")
-# NOTE: This saves the file relative to where Blender is launched.
-output_filepath = 'scene_0001.json'
-with open(output_filepath, 'w') as f:
+json_filepath = os.path.join(output_dir, 'scene_data.json')
+with open(json_filepath, 'w') as f:
     json.dump(scene_data, f, indent=4)
 
-print(f"Scene data saved to {output_filepath}")
+print(f"Scene data saved to {json_filepath}")
