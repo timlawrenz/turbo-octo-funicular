@@ -1,6 +1,7 @@
 import bpy
 import random
 import math
+import json
 
 # --- Scene Cleaning ---
 # Ensure we are in Object Mode
@@ -77,6 +78,11 @@ print("Sun light created with randomized properties.")
 # --- Object Creation ---
 print("Creating and placing random objects...")
 
+# This dictionary will hold all the ground truth data.
+scene_data = {
+    'objects': []
+}
+
 object_types = ['CUBE', 'SPHERE', 'PYRAMID']
 num_objects = random.randint(1, 3)
 
@@ -121,6 +127,16 @@ for i in range(num_objects):
     # Adjust Z to place the object's lowest point on the ground plane (Z=0)
     obj.location = (random_x, random_y, -lowest_z)
 
+    # --- Record Ground Truth Data ---
+    object_info = {
+        'object_type': obj_type,
+        # Convert Blender's mathutils types to standard Python lists for JSON serialization
+        'location': list(obj.location),
+        'rotation': list(obj.rotation_euler),
+        'scale': list(obj.scale)
+    }
+    scene_data['objects'].append(object_info)
+
     # --- Create and assign a random material ---
     mat = bpy.data.materials.new(name=f"RandomMat_{i+1}")
     mat.use_nodes = True
@@ -135,3 +151,13 @@ for i in range(num_objects):
     print(f"Created {obj.name} with a random color, scale, and rotation.")
 
 print(f"Finished creating {num_objects} objects.")
+
+
+# --- Export Ground Truth Data ---
+print("Exporting scene data to JSON...")
+# NOTE: This saves the file relative to where Blender is launched.
+output_filepath = 'scene_0001.json'
+with open(output_filepath, 'w') as f:
+    json.dump(scene_data, f, indent=4)
+
+print(f"Scene data saved to {output_filepath}")
