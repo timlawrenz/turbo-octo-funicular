@@ -95,15 +95,32 @@ for i in range(num_objects):
 
     obj = bpy.context.active_object
     obj.name = f"{obj_type.capitalize()}_{i+1}"
-
-    # Calculate placement on the ground plane
-    # The plane is 100x100, so it extends from -50 to +50. We'll place objects a bit inside the edges.
+    
+    # --- Randomize Scale and Rotation ---
+    s = random.uniform(0.8, 1.5)
+    obj.scale = (s, s, s)
+    
+    obj.rotation_euler.x = random.uniform(0, 2 * math.pi)
+    obj.rotation_euler.y = random.uniform(0, 2 * math.pi)
+    obj.rotation_euler.z = random.uniform(0, 2 * math.pi)
+    
+    # --- Correct Placement on Ground Plane ---
+    # Force an update of the scene to apply transformations before getting vertex data
+    bpy.context.view_layer.update()
+    
+    # Get the object's vertices in world coordinates
+    matrix_world = obj.matrix_world
+    world_vertices = [matrix_world @ v.co for v in obj.data.vertices]
+    
+    # Find the lowest Z point after all transformations
+    lowest_z = min(v.z for v in world_vertices)
+    
+    # Set the final location
     random_x = random.uniform(-45, 45)
     random_y = random.uniform(-45, 45)
-    # To sit on the plane, the object's Z location must be half its own height (since origin is center)
-    z_offset = obj.dimensions.z / 2
-    obj.location = (random_x, random_y, z_offset)
-    
+    # Adjust Z to place the object's lowest point on the ground plane (Z=0)
+    obj.location = (random_x, random_y, -lowest_z)
+
     # --- Create and assign a random material ---
     mat = bpy.data.materials.new(name=f"RandomMat_{i+1}")
     mat.use_nodes = True
@@ -115,6 +132,6 @@ for i in range(num_objects):
     # Assign material to the object
     obj.data.materials.append(mat)
     
-    print(f"Created {obj.name} with a random color.")
+    print(f"Created {obj.name} with a random color, scale, and rotation.")
 
 print(f"Finished creating {num_objects} objects.")
