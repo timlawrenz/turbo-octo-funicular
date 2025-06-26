@@ -124,8 +124,9 @@ for i in range(num_objects):
     lowest_z = min(v.z for v in world_vertices)
     
     # Set the final location
-    random_x = random.uniform(-45, 45)
-    random_y = random.uniform(-45, 45)
+    # Keep objects clustered closer to the center of the scene
+    random_x = random.uniform(-10, 10)
+    random_y = random.uniform(-10, 10)
     # Adjust Z to place the object's lowest point on the ground plane (Z=0)
     obj.location = (random_x, random_y, -lowest_z)
 
@@ -186,8 +187,9 @@ constraint.up_axis = 'UP_Y'
 
 # Define the circular path for the camera
 num_frames = 16
-radius = 20
-z_height = 10
+# Pull the camera back and up slightly to better frame the clustered objects
+radius = 25
+z_height = 12
 
 for i in range(num_frames):
     angle = (i / num_frames) * 2 * math.pi
