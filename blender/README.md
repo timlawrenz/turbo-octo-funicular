@@ -1,61 +1,36 @@
-# Project: 3D Object Localization from Synthetic Data
+# Blender Scene Generation Script (`clean_scene.py`)
 
-This project is an end-to-end pipeline for training a deep learning model to solve a 3D computer vision task using synthetically generated data.
+This directory contains a Python script designed to be run within Blender for generating a synthetic image dataset. The script, `clean_scene.py`, automates the creation of thousands of unique scenes, rendering them from multiple camera angles, and exporting ground truth data for each one.
 
-## High-Level Goal
+## Core Functionality
 
-The primary objective is to **train a model that can infer the 3D location of an object by looking at it from multiple different viewpoints.** This is a classic 3D reconstruction problem, and this pipeline provides the tools to generate data, load it, and run a training loop.
+The script performs the following actions in a loop to generate each unique scene:
 
-## The Pipeline
+1.  **Scene Cleanup**: Before each new scene is created, the script performs a thorough cleanup, deleting all objects, materials, and meshes from the previous iteration to ensure no data carries over and to manage memory usage effectively.
 
-The project is broken down into three main parts, each handled by a specific script.
+2.  **Stage Creation**: A large ground plane is created to serve as the stage for the objects.
 
-### 1. Synthetic Data Generation (`blender/clean_scene.py`)
+3.  **Randomized Lighting**: A "Sun" light source is added to the scene. Its rotation and energy (brightness) are slightly randomized to provide varied lighting conditions across different scenes.
 
--   **Purpose**: Real-world 3D ground truth data is difficult and expensive to acquire. This script uses Blender to programmatically generate a limitless supply of "perfect" training data.
--   **Process**: For each scene, it creates a randomized environment with 1-3 objects (cubes, spheres, or pyramids) of varying colors, scales, and rotations. It then renders the scene from 16 different camera angles around the objects.
--   **Output**: The script produces a directory for each scene containing:
-    -   16 rendered `.png` images.
-    -   A `scene_data.json` file containing the **ground truth**: the exact 3D location, rotation, and scale of every object, plus the precise camera pose for each rendered image.
+4.  **Random Object Placement**:
+    *   The script places between 1 and 3 objects in the scene.
+    *   Each object's shape is randomly chosen from a list: `CUBE`, `SPHERE`, or `PYRAMID`.
+    *   Each object is assigned a random color via a new material.
+    *   The scale and rotation of each object are randomized to increase variety.
+    *   Objects are carefully placed at a random (X, Y) location near the center of the stage. The script calculates each object's lowest point after all transformations (scaling, rotation) to ensure it rests perfectly on the ground plane without intersecting it.
 
-### 2. Data Loading & Preparation (`dataset.py`)
+5.  **Camera and Rendering**:
+    *   A camera is created and set to always point at the center of the scene `(0,0,0)`.
+    *   The camera moves along a circular arc around the objects.
+    *   For each scene, it renders 16 frames from different viewpoints along this arc.
 
--   **Purpose**: A folder of images and JSON files is not a format that a machine learning framework like PyTorch can use directly. This script acts as the bridge.
--   **Process**: The `SceneDataset` class reads the generated data and packages it for training. A single "sample" from this dataset consists of an entire scene:
-    -   A stacked tensor of all 16 images.
-    -   A tensor of all 16 corresponding camera poses.
-    -   The ground truth 3D location of the target object.
--   **Features**: It supports `torchvision.transforms` to apply on-the-fly image augmentations like resizing and normalization.
+6.  **Ground Truth Export**:
+    *   For each scene, a `scene_data.json` file is created.
+    *   This JSON file contains detailed ground truth information, including:
+        *   The type, location, rotation, and scale of every object.
+        *   The location, rotation, and corresponding image path for each of the 16 camera poses.
 
-### 3. Model Training (`train.py`)
+## Output Structure
 
--   **Purpose**: This is the main script for training a model.
--   **Process**: It sets up a standard training loop that:
-    1.  Initializes the `SceneDataset` and `DataLoader`.
-    2.  Automatically selects a CUDA device if available.
-    3.  Feeds the model batches of data, where each item contains the `images`, `poses`, and the target `gt_location`.
-    4.  (Future) Compares the model's predicted location to the ground truth and updates the model's weights to improve its accuracy.
+The script generates all output into a top-level `output/` directory (relative to where Blender is executed). Each scene gets its own subfolder, named sequentially.
 
-## How to Run the Full Pipeline
-
-1.  **Generate Data**
-    First, use Blender to generate the dataset. This script will create an `output/` directory with all the scenes.
-    ```bash
-    blender --background --python blender/clean_scene.py
-    ```
-
-2.  **Install Dependencies**
-    Install the required Python packages for training.
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Run Training**
-    Execute the training script. This will load the data generated in step 1 and begin the training loop.
-    ```bash
-    python train.py
-    ```
-
-## Potential Model Architecture
-
-The data structure produced by this pipeline (multiple images + camera poses to predict a 3D property) is the exact input required for a class of models like **Neural Radiance Fields (NeRF)**. While the current goal is to predict a single object's location, this framework could easily be extended to train a NeRF to reconstruct an entire scene's geometry and appearance.
