@@ -56,6 +56,7 @@ def main():
 
     # Training parameters
     num_epochs = 50
+    best_epoch_loss = float('inf')
 
     # --- 3. Training Loop ---
     
@@ -90,6 +91,13 @@ def main():
 
         epoch_loss = running_loss / len(data_loader)
         print(f"Epoch {epoch + 1} finished. Average Loss: {epoch_loss:.4f}")
+
+        # Check if this is the best model so far and save it
+        if epoch_loss < best_epoch_loss:
+            best_epoch_loss = epoch_loss
+            model_save_path = 'best_model.pth'
+            torch.save(model.state_dict(), model_save_path)
+            print(f"  New best model saved to {model_save_path} with loss: {best_epoch_loss:.4f}")
 
     print("\nTraining loop finished.")
 
