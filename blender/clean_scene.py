@@ -75,6 +75,9 @@ def generate_scenes():
         object_types = ['CUBE', 'SPHERE', 'PYRAMID']
         num_objects = random.randint(1, 3)
 
+        # Temporary list to hold object data before sorting
+        objects_to_sort = []
+
         for i in range(num_objects):
             obj_type = random.choice(object_types)
 
@@ -103,13 +106,14 @@ def generate_scenes():
             random_y = random.uniform(-10, 10)
             obj.location = (random_x, random_y, -lowest_z)
 
+            # Record ground truth data into a temporary list
             object_info = {
                 'object_type': obj_type,
                 'location': list(obj.location),
                 'rotation': list(obj.rotation_euler),
                 'scale': list(obj.scale)
             }
-            scene_data['objects'].append(object_info)
+            objects_to_sort.append(object_info)
 
             mat = bpy.data.materials.new(name=f"RandomMat_{scene_idx}_{i+1}")
             mat.use_nodes = True
@@ -119,8 +123,15 @@ def generate_scenes():
             obj.data.materials.append(mat)
             
             print(f"Created {obj.name} with a random color, scale, and rotation.")
+        
+        # Sort the objects by their distance to the origin (0,0,0) for a canonical order.
+        # Sorting by distance squared is equivalent and avoids a sqrt calculation.
+        objects_to_sort.sort(key=lambda o: o['location'][0]**2 + o['location'][1]**2 + o['location'][2]**2)
+        
+        # Add the canonically ordered objects to the final scene data
+        scene_data['objects'] = objects_to_sort
 
-        print(f"Finished creating {num_objects} objects.")
+        print(f"Finished creating and sorting {num_objects} objects.")
 
 
         # --- Camera, Rendering, and Pose Saving ---
