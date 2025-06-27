@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
@@ -49,14 +50,19 @@ def main():
     # Instantiate the model and move it to the device
     model = SceneReconstructionModel().to(device)
 
+    # Instantiate optimizer and loss function
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.MSELoss()
+
     # Training parameters
     num_epochs = 50
 
     # --- 3. Training Loop ---
     
-    print("\nStarting training loop (debug run)...")
+    print("\nStarting training loop...")
     for epoch in range(num_epochs):
         print(f"\n--- Epoch {epoch + 1}/{num_epochs} ---")
+        running_loss = 0.0
         
         # Enumerate over the DataLoader to get batches of data
         for i, batch in enumerate(data_loader):
@@ -65,18 +71,24 @@ def main():
             poses = batch['poses'].to(device)
             gt_location = batch['gt_location'].to(device)
 
-            # This is a debug run. In a real scenario, you would add:
-            # - Model forward pass
+            # --- Forward pass ---
             outputs = model(images, poses)
-            # - Loss calculation: loss = loss_function(outputs, gt_location)
-            # - Backpropagation: optimizer.zero_grad(); loss.backward(); optimizer.step()
             
+            # --- Loss calculation ---
+            loss = criterion(outputs, gt_location)
+            
+            # --- Backpropagation ---
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            # Track and report loss
+            running_loss += loss.item()
             if (i + 1) % 10 == 0 or i == 0:
-                print(f"  Batch {i + 1}/{len(data_loader)} processed.")
-                print(f"    Model output shape: {outputs.shape} on {outputs.device}")
-                # print(f"    Images tensor shape: {images.shape} on {images.device}")
-                # print(f"    Poses tensor shape: {poses.shape} on {poses.device}")
-                # print(f"    GT Location tensor shape: {gt_location.shape} on {gt_location.device}")
+                print(f"  Batch {i + 1}/{len(data_loader)} | Loss: {loss.item():.4f}")
+
+        epoch_loss = running_loss / len(data_loader)
+        print(f"Epoch {epoch + 1} finished. Average Loss: {epoch_loss:.4f}")
 
     print("\nTraining loop finished.")
 
