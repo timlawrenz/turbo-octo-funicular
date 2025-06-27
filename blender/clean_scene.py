@@ -10,7 +10,7 @@ def generate_scenes():
     """
     # Set the total number of scenes to generate.
     # Increase this value to create a large dataset.
-    num_scenes_to_generate = 10
+    num_scenes_to_generate = 10000
 
     for scene_idx in range(num_scenes_to_generate):
         print(f"--- Starting generation for scene {scene_idx + 1}/{num_scenes_to_generate} ---")

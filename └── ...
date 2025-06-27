@@ -1,7 +1,0 @@
-
-## How to Use
-
-The script is intended to be run from the command line in Blender's background mode, which prevents the UI from loading and is ideal for automation.
-
-From the root directory of this project, run the following command:
-
