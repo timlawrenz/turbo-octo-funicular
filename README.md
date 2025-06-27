@@ -34,7 +34,7 @@ The project is broken down into three main parts, each handled by a specific scr
     1.  Initializes the `SceneDataset` and `DataLoader`.
     2.  Automatically selects a CUDA device if available.
     3.  Feeds the model batches of data, where each item contains the `images`, `poses`, and the `gt_location`.
-    4.  (Future) Compares the model's predicted location to the ground truth and updates the model's weights to improve its accuracy.
+    4.  Compares the model's predicted location to the ground truth using an MSE loss function and updates the model's weights using an Adam optimizer.
 
 ## How to Run the Full Pipeline
 
