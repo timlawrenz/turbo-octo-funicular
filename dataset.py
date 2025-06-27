@@ -2,15 +2,16 @@ import os
 import json
 import random
 from PIL import Image
+import torch
 
 class SceneDataset:
     """
     A class to represent the synthetic dataset of scenes.
-    Each item in the dataset corresponds to a single rendered frame and its ground truth data.
+    Each item in the dataset corresponds to a full scene (all frames).
     """
     def __init__(self, data_dir, transform=None):
         """
-        Initializes the dataset by locating all scenes and preparing a list of samples.
+        Initializes the dataset by locating all scenes.
 
         Args:
             data_dir (str): The path to the root directory containing the scene folders
@@ -34,68 +35,76 @@ class SceneDataset:
             json_path = os.path.join(scene_path, 'scene_data.json')
 
             if os.path.exists(json_path):
-                # Each scene has 16 frames, so we create a sample for each frame
-                for frame_idx in range(16):
-                    self.samples.append({
-                        'scene_name': scene_name,
-                        'json_path': json_path,
-                        'frame_idx': frame_idx
-                    })
+                # Each scene is now a single sample
+                self.samples.append({
+                    'scene_name': scene_name,
+                    'json_path': json_path,
+                })
 
     def __len__(self):
         """
-        Returns the total number of samples (images) in the dataset.
+        Returns the total number of scenes in the dataset.
         """
         return len(self.samples)
 
     def __getitem__(self, idx):
         """
-        Retrieves a single sample from the dataset by its index.
+        Retrieves a single full scene from the dataset by its index.
 
         Args:
-            idx (int): The index of the sample to retrieve.
+            idx (int): The index of the scene to retrieve.
 
         Returns:
-            dict: A dictionary containing the image and its corresponding ground truth data.
+            dict: A dictionary containing the stacked images, poses, and ground truth.
                   {
-                      'image': <PIL.Image or transformed image/tensor>,
-                      'camera_location': [x, y, z],
-                      'camera_rotation': [x, y, z],
-                      'objects': [ { 'object_type': ..., 'location': ... }, ... ]
+                      'images': torch.Tensor,   # Shape: [num_frames, C, H, W]
+                      'poses': torch.Tensor,     # Shape: [num_frames, 6] (loc+rot)
+                      'gt_location': torch.Tensor # Shape: [3]
                   }
         """
         sample_info = self.samples[idx]
-        frame_idx = sample_info['frame_idx']
 
         # Load the scene's ground truth data from the JSON file
         with open(sample_info['json_path'], 'r') as f:
             scene_data = json.load(f)
 
-        # Get the data specific to this frame
-        camera_pose = scene_data['camera_poses'][frame_idx]
-        
-        # Construct the path to the image file
-        image_path = os.path.join(self.data_dir, sample_info['scene_name'], f"frame_{frame_idx:02d}.png")
-        
-        # Load the image
-        image = Image.open(image_path).convert('RGB')
+        # --- Process all images in the scene ---
+        images = []
+        num_frames = 16  # As defined in the generation script
+        for frame_idx in range(num_frames):
+            image_path = os.path.join(self.data_dir, sample_info['scene_name'], f"frame_{frame_idx:02d}.png")
+            image = Image.open(image_path).convert('RGB')
 
-        # Apply transform if it exists
-        if self.transform:
-            image = self.transform(image)
+            if self.transform:
+                image = self.transform(image)
+            images.append(image)
+
+        # Stack images into a single tensor
+        images_tensor = torch.stack(images)
+
+        # --- Process all camera poses ---
+        camera_poses = []
+        for pose_info in scene_data['camera_poses']:
+            pose_vector = pose_info['location'] + pose_info['rotation']
+            camera_poses.append(pose_vector)
+
+        poses_tensor = torch.tensor(camera_poses, dtype=torch.float32)
+
+        # --- Get ground truth location (of the first object) ---
+        # The generation script ensures at least one object exists.
+        gt_location = torch.tensor(scene_data['objects'][0]['location'], dtype=torch.float32)
 
         return {
-            'image': image,
-            'camera_location': camera_pose['location'],
-            'camera_rotation': camera_pose['rotation'],
-            'objects': scene_data['objects']  # Object data is the same for all frames in a scene
+            'images': images_tensor,
+            'poses': poses_tensor,
+            'gt_location': gt_location
         }
 
 # --- Example Usage ---
 if __name__ == '__main__':
     # Assume your data is in a folder named 'output' as generated by the Blender script
     # Change this to 'data' if you have renamed it.
-    DATA_DIRECTORY = 'output' 
+    DATA_DIRECTORY = 'output'
 
     # To run this example, you need PyTorch and Torchvision installed:
     # pip install torch torchvision
@@ -113,28 +122,24 @@ if __name__ == '__main__':
         dataset = SceneDataset(data_dir=DATA_DIRECTORY, transform=image_transform)
 
         print(f"Dataset loaded successfully.")
-        print(f"Total number of images in the dataset: {len(dataset)}")
+        # The length is now the number of scenes
+        print(f"Total number of scenes in the dataset: {len(dataset)}")
 
         # Get a random sample from the dataset
         random_index = random.randint(0, len(dataset) - 1)
-        print(f"\nRetrieving sample at random index: {random_index}")
-        
+        print(f"\nRetrieving scene at random index: {random_index}")
+
         sample = dataset[random_index]
-        
+
         # Print the information for the retrieved sample
         print("--- Sample Data ---")
-        # The image is now a tensor, so we print its shape
-        print(f"Image tensor shape: {sample['image'].shape}")
-        print(f"Camera Location: {sample['camera_location']}")
-        print(f"Camera Rotation: {sample['camera_rotation']}")
-        print(f"Number of objects in scene: {len(sample['objects'])}")
-        for i, obj in enumerate(sample['objects']):
-            print(f"  - Object {i+1}:")
-            print(f"    Type: {obj['object_type']}")
-            print(f"    Location: {obj['location']}")
+        print(f"Images tensor shape: {sample['images'].shape}")
+        print(f"Poses tensor shape: {sample['poses'].shape}")
+        print(f"Ground truth location tensor shape: {sample['gt_location'].shape}")
+        print(f"Ground truth location: {sample['gt_location']}")
 
     except ImportError:
-        print("Torchvision is not installed. Skipping example with transforms.")
+        print("PyTorch or Torchvision is not installed. Skipping example with transforms.")
         print("To run this example, install it with: pip install torch torchvision")
     except FileNotFoundError as e:
         print(e)
