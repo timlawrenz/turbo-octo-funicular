@@ -8,15 +8,19 @@ class SceneDataset:
     A class to represent the synthetic dataset of scenes.
     Each item in the dataset corresponds to a single rendered frame and its ground truth data.
     """
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, transform=None):
         """
         Initializes the dataset by locating all scenes and preparing a list of samples.
 
         Args:
             data_dir (str): The path to the root directory containing the scene folders
                             (e.g., 'data/').
+            transform (callable, optional): A function/transform that takes in a PIL image
+                                            and returns a transformed version. E.g., a
+                                            `torchvision.transforms.Compose` object.
         """
         self.data_dir = data_dir
+        self.transform = transform
         self.samples = []
 
         if not os.path.isdir(self.data_dir):
@@ -54,7 +58,7 @@ class SceneDataset:
         Returns:
             dict: A dictionary containing the image and its corresponding ground truth data.
                   {
-                      'image': <PIL.Image>,
+                      'image': <PIL.Image or transformed image/tensor>,
                       'camera_location': [x, y, z],
                       'camera_rotation': [x, y, z],
                       'objects': [ { 'object_type': ..., 'location': ... }, ... ]
@@ -76,6 +80,10 @@ class SceneDataset:
         # Load the image
         image = Image.open(image_path).convert('RGB')
 
+        # Apply transform if it exists
+        if self.transform:
+            image = self.transform(image)
+
         return {
             'image': image,
             'camera_location': camera_pose['location'],
@@ -89,9 +97,20 @@ if __name__ == '__main__':
     # Change this to 'data' if you have renamed it.
     DATA_DIRECTORY = 'output' 
 
-    print(f"Loading dataset from: {DATA_DIRECTORY}")
+    # To run this example, you need PyTorch and Torchvision installed:
+    # pip install torch torchvision
     try:
-        dataset = SceneDataset(data_dir=DATA_DIRECTORY)
+        from torchvision import transforms
+
+        # Example of a standard transformation pipeline for image models
+        image_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+        print(f"Loading dataset from: {DATA_DIRECTORY} with transformations.")
+        dataset = SceneDataset(data_dir=DATA_DIRECTORY, transform=image_transform)
 
         print(f"Dataset loaded successfully.")
         print(f"Total number of images in the dataset: {len(dataset)}")
@@ -104,7 +123,8 @@ if __name__ == '__main__':
         
         # Print the information for the retrieved sample
         print("--- Sample Data ---")
-        print(f"Image size: {sample['image'].size}")
+        # The image is now a tensor, so we print its shape
+        print(f"Image tensor shape: {sample['image'].shape}")
         print(f"Camera Location: {sample['camera_location']}")
         print(f"Camera Rotation: {sample['camera_rotation']}")
         print(f"Number of objects in scene: {len(sample['objects'])}")
@@ -112,10 +132,10 @@ if __name__ == '__main__':
             print(f"  - Object {i+1}:")
             print(f"    Type: {obj['object_type']}")
             print(f"    Location: {obj['location']}")
-        
-        # You can display the image if you want
-        # sample['image'].show()
 
+    except ImportError:
+        print("Torchvision is not installed. Skipping example with transforms.")
+        print("To run this example, install it with: pip install torch torchvision")
     except FileNotFoundError as e:
         print(e)
     except Exception as e:
