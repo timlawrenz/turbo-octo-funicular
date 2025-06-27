@@ -2,6 +2,7 @@ import torch
 from torchvision import transforms
 import numpy as np
 import random
+import os
 
 from dataset import SceneDataset
 from model import SceneReconstructionModel
