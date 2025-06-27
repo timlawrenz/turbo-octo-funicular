@@ -85,7 +85,8 @@ def main():
             # Track and report loss
             running_loss += loss.item()
             if (i + 1) % 10 == 0 or i == 0:
-                print(f"  Batch {i + 1}/{len(data_loader)} | Loss: {loss.item():.4f}")
+                current_avg_loss = running_loss / (i + 1)
+                print(f"  Batch {i + 1}/{len(data_loader)} | Current Avg Loss: {current_avg_loss:.4f}")
 
         epoch_loss = running_loss / len(data_loader)
         print(f"Epoch {epoch + 1} finished. Average Loss: {epoch_loss:.4f}")
