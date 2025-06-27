@@ -6,56 +6,14 @@ This project is an end-to-end pipeline for training a deep learning model to sol
 
 The primary objective is to **train a model that can infer the 3D location of an object by looking at it from multiple different viewpoints.** This is a classic 3D reconstruction problem, and this pipeline provides the tools to generate data, load it, and run a training loop.
 
-## The Pipeline
+## Prerequisites
 
-The project is broken down into three main parts, each handled by a specific script.
+Before running the pipeline, it's important to set up the correct environments.
 
-### 1. Synthetic Data Generation (`blender/clean_scene.py`)
+### 1. System Python Environment (for Training)
 
--   **Purpose**: Real-world 3D ground truth data is difficult and expensive to acquire. This script uses Blender to programmatically generate a limitless supply of "perfect" training data.
--   **Process**: For each scene, it creates a randomized environment with 1-3 objects (cubes, spheres, or pyramids) of varying colors, scales, and rotations. It then renders the scene from 16 different camera angles around the objects.
--   **Output**: The script produces a directory for each scene containing:
-    -   16 rendered `.png` images.
-    -   A `scene_data.json` file containing the **ground truth**: the exact 3D location, rotation, and scale of every object, plus the precise camera pose for each rendered image.
+The training scripts (`train.py`, `dataset.py`, `model.py`) run on your system's Python.
 
-### 2. Data Loading & Preparation (`dataset.py`)
+- **Python Version**: It is highly recommended to use a stable Python version such as **Python 3.10 or 3.11**. As of early 2024, major libraries like PyTorch may not have stable releases for very new versions like Python 3.13.
+- **Virtual Environment**: To avoid conflicts with other projects, you should create a virtual environment.
 
--   **Purpose**: A folder of images and JSON files is not a format that a machine learning framework like PyTorch can use directly. This script acts as the bridge.
--   **Process**: The `SceneDataset` class reads the generated data and packages it for training. A single "sample" from this dataset consists of an entire scene:
-    -   A stacked tensor of all 16 images.
-    -   A tensor of all 16 corresponding camera poses.
-    -   The ground truth 3D location of the target object.
--   **Features**: It supports `torchvision.transforms` to apply on-the-fly image augmentations like resizing and normalization.
-
-### 3. Model Training (`train.py`)
-
--   **Purpose**: This is the main script for training a model.
--   **Process**: It sets up a standard training loop that:
-    1.  Initializes the `SceneDataset` and `DataLoader`.
-    2.  Automatically selects a CUDA device if available.
-    3.  Feeds the model batches of data, where each item contains the `images`, `poses`, and the `gt_location`.
-    4.  Compares the model's predicted location to the ground truth using an MSE loss function and updates the model's weights using an Adam optimizer.
-
-## How to Run the Full Pipeline
-
-1.  **Generate Data**
-    First, use Blender to generate the dataset. This script will create an `output/` directory with all the scenes.
-    ```bash
-    blender --background --python blender/clean_scene.py
-    ```
-
-2.  **Install Dependencies**
-    Install the required Python packages for training.
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Run Training**
-    Execute the training script. This will load the data generated in step 1 and begin the training loop.
-    ```bash
-    python train.py
-    ```
-
-## Potential Model Architecture
-
-The data structure produced by this pipeline (multiple images + camera poses to predict a 3D property) is the exact input required for a class of models like **Neural Radiance Fields (NeRF)**. While the current goal is to predict a single object's location, this framework could easily be extended to train a NeRF to reconstruct an entire scene's geometry and appearance.
