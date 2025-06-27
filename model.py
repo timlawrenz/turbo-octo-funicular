@@ -4,43 +4,57 @@ import torchvision.models as models
 
 class SceneReconstructionModel(nn.Module):
     """
-    An image encoder model based on a pretrained ResNet.
-    It removes the final classification layers of the ResNet and adds a
-    new head to produce a feature vector of a specified dimension.
+    A model that uses a ResNet backbone and a Transformer Encoder to predict
+    an object's 3D location from a sequence of images and poses.
     """
-    def __init__(self, num_frames=16, feature_dim=512):
+    def __init__(self, num_frames=16, feature_dim=512, nhead=8, num_encoder_layers=4):
         """
-        Initializes the ImageEncoder model.
+        Initializes the SceneReconstructionModel.
 
         Args:
-            feature_dim (int): The desired dimension of the output feature vector.
+            num_frames (int): The number of frames in each scene sequence.
+            feature_dim (int): The dimension for the image and pose features.
+            nhead (int): The number of attention heads in the Transformer.
+            num_encoder_layers (int): The number of layers in the Transformer Encoder.
         """
         super(SceneReconstructionModel, self).__init__()
         self.num_frames = num_frames
         self.feature_dim = feature_dim
 
-        # Load a pretrained ResNet18 model
+        # --- 1. Feature Extractors ---
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-
-        # Create the backbone by removing the original average pooling and
-        # fully connected layers of the ResNet.
         self.image_encoder = nn.Sequential(*list(resnet.children())[:-2])
-
-        # Add a final convolutional layer and adaptive pooling to get the desired feature dimension
         self.feature_adapter = nn.Sequential(
             nn.Conv2d(512, feature_dim, kernel_size=1),
             nn.AdaptiveAvgPool2d((1, 1))
         )
-        
-        # 2. Pose Encoder
         self.pose_encoder = nn.Sequential(
             nn.Linear(6, 128),
             nn.ReLU(),
             nn.Linear(128, feature_dim)
         )
 
-        # 3. Output Head
+        # --- 2. Transformer Aggregation Components ---
+        # Special learnable token that will be prepended to the sequence
+        self.cls_token = nn.Parameter(torch.randn(1, 1, feature_dim))
+        
+        # Learnable positional encodings for the sequence (CLS token + num_frames)
+        self.positional_encoding = nn.Parameter(torch.randn(1, num_frames + 1, feature_dim))
+        
+        # The Transformer Encoder block
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=feature_dim,
+            nhead=nhead,
+            dim_feedforward=feature_dim * 4,
+            dropout=0.1,
+            batch_first=True  # This is important! It expects input as [B, Seq, Dim]
+        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoder_layers)
+        
+        # --- 3. Output Head ---
+        # The input to the head is the output of the [CLS] token from the transformer
         self.output_head = nn.Sequential(
+            nn.LayerNorm(feature_dim), # Normalization is good practice here
             nn.Linear(feature_dim, 256),
             nn.ReLU(),
             nn.Linear(256, 128),
@@ -61,26 +75,31 @@ class SceneReconstructionModel(nn.Module):
         """
         batch_size = images.shape[0]
         
-        # --- 1. Encoding ---
-        # Reshape images to process them all at once: [B*N, C, H, W]
+        # --- Feature Extraction ---
         images_flat = images.view(batch_size * self.num_frames, *images.shape[2:])
-        
-        # Get image features
         image_features_raw = self.image_encoder(images_flat)
-        image_features = self.feature_adapter(image_features_raw).squeeze() # Shape: [B*N, D]
-        image_features = image_features.view(batch_size, self.num_frames, self.feature_dim) # Reshape back: [B, N, D]
+        image_features = self.feature_adapter(image_features_raw).squeeze()
+        image_features = image_features.view(batch_size, self.num_frames, self.feature_dim)
         
-        # Get pose features
-        pose_features = self.pose_encoder(poses) # Shape: [B, N, D]
-
-        # --- 2. Fusion & Aggregation ---
-        # Fuse by element-wise addition
+        pose_features = self.pose_encoder(poses)
         combined_features = image_features + pose_features
+
+        # --- Transformer Aggregation ---
+        # Prepend the [CLS] token to the sequence
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        transformer_input = torch.cat((cls_tokens, combined_features), dim=1)
         
-        # Aggregate across the frames dimension (dim=1) using mean pooling
-        scene_vector = torch.mean(combined_features, dim=1) # Shape: [B, D]
+        # Add positional encoding
+        transformer_input += self.positional_encoding
         
-        # --- 3. Output Head ---
-        predicted_location = self.output_head(scene_vector) # Shape: [B, 3]
+        # Pass through the Transformer Encoder
+        transformer_output = self.transformer_encoder(transformer_input)
+        
+        # Extract the state of the [CLS] token (it's the first one in the sequence)
+        # This is our aggregated scene vector
+        scene_vector = transformer_output[:, 0, :]
+        
+        # --- Output Head ---
+        predicted_location = self.output_head(scene_vector)
         
         return predicted_location
