@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from dataset import SceneDataset
+from model import SceneReconstructionModel
 
 def main():
     """
@@ -19,7 +20,7 @@ def main():
 
     # Load the full dataset with the defined transformations
     # Assumes the generated data is in the 'output' directory.
-    DATA_DIRECTORY = 'data'
+    DATA_DIRECTORY = 'output'
     try:
         full_dataset = SceneDataset(data_dir=DATA_DIRECTORY, transform=image_transform)
         print(f"Successfully loaded dataset with {len(full_dataset)} scenes.")
@@ -44,6 +45,9 @@ def main():
     # Set up the device (use CUDA if available, otherwise fallback to CPU)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    
+    # Instantiate the model and move it to the device
+    model = SceneReconstructionModel().to(device)
 
     # Training parameters
     num_epochs = 50
@@ -62,12 +66,14 @@ def main():
             gt_location = batch['gt_location'].to(device)
 
             # This is a debug run. In a real scenario, you would add:
-            # - Model forward pass: outputs = model(images, poses)
+            # - Model forward pass
+            outputs = model(images, poses)
             # - Loss calculation: loss = loss_function(outputs, gt_location)
             # - Backpropagation: optimizer.zero_grad(); loss.backward(); optimizer.step()
             
             if (i + 1) % 10 == 0 or i == 0:
                 print(f"  Batch {i + 1}/{len(data_loader)} processed.")
+                print(f"    Model output shape: {outputs.shape} on {outputs.device}")
                 # print(f"    Images tensor shape: {images.shape} on {images.device}")
                 # print(f"    Poses tensor shape: {poses.shape} on {poses.device}")
                 # print(f"    GT Location tensor shape: {gt_location.shape} on {gt_location.device}")

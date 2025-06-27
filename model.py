@@ -48,7 +48,7 @@ class SceneReconstructionModel(nn.Module):
             nn.Linear(128, 3) # Output is a 3D location (x, y, z)
         )
 
-    def forward(self, x):
+    def forward(self, images, poses):
         """
         Defines the forward pass of the model.
         
