@@ -19,7 +19,7 @@ def main():
 
     # Load the full dataset with the defined transformations
     # Assumes the generated data is in the 'output' directory.
-    DATA_DIRECTORY = 'output'
+    DATA_DIRECTORY = 'data'
     try:
         full_dataset = SceneDataset(data_dir=DATA_DIRECTORY, transform=image_transform)
         print(f"Successfully loaded dataset with {len(full_dataset)} scenes.")

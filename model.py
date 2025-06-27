@@ -2,82 +2,85 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-class ImageEncoder(nn.Module):
+class SceneReconstructionModel(nn.Module):
     """
     An image encoder model based on a pretrained ResNet.
     It removes the final classification layers of the ResNet and adds a
     new head to produce a feature vector of a specified dimension.
     """
-    def __init__(self, feature_dim=256):
+    def __init__(self, num_frames=16, feature_dim=512):
         """
         Initializes the ImageEncoder model.
 
         Args:
             feature_dim (int): The desired dimension of the output feature vector.
         """
-        super(ImageEncoder, self).__init__()
+        super(SceneReconstructionModel, self).__init__()
+        self.num_frames = num_frames
+        self.feature_dim = feature_dim
 
         # Load a pretrained ResNet18 model
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
 
         # Create the backbone by removing the original average pooling and
         # fully connected layers of the ResNet.
-        modules = list(resnet.children())[:-2]
-        self.backbone = nn.Sequential(*modules)
+        self.image_encoder = nn.Sequential(*list(resnet.children())[:-2])
 
-        # Create a new head to process the features from the backbone.
-        # The ResNet18 backbone outputs features with 512 channels.
-        self.head = nn.Sequential(
-            # Adaptive average pooling reduces the spatial dimensions to 1x1
-            nn.AdaptiveAvgPool2d((1, 1)),
-            # A 1x1 convolution changes the number of channels to feature_dim
-            nn.Conv2d(in_channels=512, out_channels=feature_dim, kernel_size=1),
-            # Flatten the output to get a feature vector of shape [B, feature_dim]
-            nn.Flatten()
+        # Add a final convolutional layer and adaptive pooling to get the desired feature dimension
+        self.feature_adapter = nn.Sequential(
+            nn.Conv2d(512, feature_dim, kernel_size=1),
+            nn.AdaptiveAvgPool2d((1, 1))
+        )
+        
+        # 2. Pose Encoder
+        self.pose_encoder = nn.Sequential(
+            nn.Linear(6, 128),
+            nn.ReLU(),
+            nn.Linear(128, feature_dim)
+        )
+
+        # 3. Output Head
+        self.output_head = nn.Sequential(
+            nn.Linear(feature_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 3) # Output is a 3D location (x, y, z)
         )
 
     def forward(self, x):
         """
-        Forward pass for the image encoder.
-
+        Defines the forward pass of the model.
+        
         Args:
-            x (torch.Tensor): Input image tensor with shape [B, C, H, W].
-
+            images (torch.Tensor): A tensor of images with shape [B, N, C, H, W]
+            poses (torch.Tensor): A tensor of poses with shape [B, N, 6]
+        
         Returns:
-            torch.Tensor: Encoded feature vector with shape [B, feature_dim].
+            torch.Tensor: The predicted 3D location(s) with shape [B, 3]
         """
-        features = self.backbone(x)
-        encoded = self.head(features)
-        return encoded
+        batch_size = images.shape[0]
+        
+        # --- 1. Encoding ---
+        # Reshape images to process them all at once: [B*N, C, H, W]
+        images_flat = images.view(batch_size * self.num_frames, *images.shape[2:])
+        
+        # Get image features
+        image_features_raw = self.image_encoder(images_flat)
+        image_features = self.feature_adapter(image_features_raw).squeeze() # Shape: [B*N, D]
+        image_features = image_features.view(batch_size, self.num_frames, self.feature_dim) # Reshape back: [B, N, D]
+        
+        # Get pose features
+        pose_features = self.pose_encoder(poses) # Shape: [B, N, D]
 
-# --- Example Usage ---
-if __name__ == '__main__':
-    # This block will only run when the script is executed directly.
-    # It serves as a quick test to verify the model's architecture and output shape.
-
-    # Create an instance of the model with a desired feature dimension
-    feature_dimension = 256
-    model = ImageEncoder(feature_dim=feature_dimension)
-    
-    # Put the model in evaluation mode
-    model.eval()
-
-    print("--- Model Architecture ---")
-    print(model)
-
-    # Create a dummy input tensor representing a batch of images
-    # Batch size = 4, Channels = 3, Height = 224, Width = 224
-    dummy_input = torch.randn(4, 3, 224, 224)
-
-    # Pass the input through the model
-    with torch.no_grad(): # Disable gradient calculation for inference
-        output_features = model(dummy_input)
-
-    # Print the shapes to verify
-    print("\n--- Shape Verification ---")
-    print(f"Dummy input shape:  {dummy_input.shape}")
-    print(f"Output features shape: {output_features.shape}")
-    
-    # Check if the output shape is correct
-    assert output_features.shape == (4, feature_dimension)
-    print("\nOutput shape is correct.")
+        # --- 2. Fusion & Aggregation ---
+        # Fuse by element-wise addition
+        combined_features = image_features + pose_features
+        
+        # Aggregate across the frames dimension (dim=1) using mean pooling
+        scene_vector = torch.mean(combined_features, dim=1) # Shape: [B, D]
+        
+        # --- 3. Output Head ---
+        predicted_location = self.output_head(scene_vector) # Shape: [B, 3]
+        
+        return predicted_location
