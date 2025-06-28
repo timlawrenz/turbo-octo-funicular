@@ -1,8 +1,16 @@
-import bpy
-import random
-import math
+"""
+Blender script for generating synthetic 3D scenes with random objects.
+
+This module creates a limitless supply of synthetic training data by generating
+randomized 3D scenes with objects (cubes, spheres, pyramids) and rendering them
+from multiple camera angles.
+"""
 import json
+import math
 import os
+import random
+
+import bpy
 
 def generate_scenes():
     """
@@ -30,7 +38,7 @@ def generate_scenes():
         for block in bpy.data.materials:
             if block.users == 0:
                 bpy.data.materials.remove(block)
-        
+
         for block in bpy.data.meshes:
             if block.users == 0:
                 bpy.data.meshes.remove(block)
@@ -90,18 +98,18 @@ def generate_scenes():
 
             obj = bpy.context.active_object
             obj.name = f"{obj_type.capitalize()}_{i+1}"
-            
+
             s = random.uniform(0.8, 1.5)
             obj.scale = (s, s, s)
             obj.rotation_euler.x = random.uniform(0, 2 * math.pi)
             obj.rotation_euler.y = random.uniform(0, 2 * math.pi)
             obj.rotation_euler.z = random.uniform(0, 2 * math.pi)
-            
+
             bpy.context.view_layer.update()
             matrix_world = obj.matrix_world
             world_vertices = [matrix_world @ v.co for v in obj.data.vertices]
             lowest_z = min(v.z for v in world_vertices)
-            
+
             random_x = random.uniform(-10, 10)
             random_y = random.uniform(-10, 10)
             obj.location = (random_x, random_y, -lowest_z)
@@ -119,15 +127,18 @@ def generate_scenes():
             mat.use_nodes = True
             principled_bsdf = mat.node_tree.nodes.get('Principled BSDF')
             if principled_bsdf:
-                principled_bsdf.inputs['Base Color'].default_value = (random.random(), random.random(), random.random(), 1)
+                principled_bsdf.inputs['Base Color'].default_value = (
+                    random.random(), random.random(), random.random(), 1)
             obj.data.materials.append(mat)
-            
+
             print(f"Created {obj.name} with a random color, scale, and rotation.")
-        
+
         # Sort the objects by their distance to the origin (0,0,0) for a canonical order.
         # Sorting by distance squared is equivalent and avoids a sqrt calculation.
-        objects_to_sort.sort(key=lambda o: o['location'][0]**2 + o['location'][1]**2 + o['location'][2]**2)
-        
+        objects_to_sort.sort(key=lambda o: (o['location'][0]**2 +
+                                           o['location'][1]**2 +
+                                           o['location'][2]**2))
+
         # Add the canonically ordered objects to the final scene data
         scene_data['objects'] = objects_to_sort
 
@@ -165,25 +176,25 @@ def generate_scenes():
             x = radius * math.cos(angle)
             y = radius * math.sin(angle)
             camera.location = (x, y, z_height)
-            
+
             bpy.context.view_layer.update()
-            
+
             frame_filepath = os.path.join(output_dir, f"frame_{i:02d}.png")
             bpy.context.scene.render.filepath = frame_filepath
-            
+
             pose_info = {
                 'location': list(camera.location),
                 'rotation': list(camera.rotation_euler),
                 'image_path': frame_filepath
             }
             scene_data['camera_poses'].append(pose_info)
-            
+
             bpy.ops.render.render(write_still=True)
             print(f"Rendered frame {i+1}/{num_frames} to {frame_filepath}")
 
         # --- Export Ground Truth Data ---
         json_filepath = os.path.join(output_dir, 'scene_data.json')
-        with open(json_filepath, 'w') as f:
+        with open(json_filepath, 'w', encoding='utf-8') as f:
             json.dump(scene_data, f, indent=4)
 
         print(f"Scene data saved to {json_filepath}")

@@ -1,3 +1,10 @@
+"""
+Dataset module for loading and processing synthetic 3D scene data.
+
+This module provides the SceneDataset class for loading scenes generated
+by the Blender script, handling image loading, transformations, and
+ground truth data extraction.
+"""
 import os
 import json
 import random
@@ -65,14 +72,15 @@ class SceneDataset:
         sample_info = self.samples[idx]
 
         # Load the scene's ground truth data from the JSON file
-        with open(sample_info['json_path'], 'r') as f:
+        with open(sample_info['json_path'], 'r', encoding='utf-8') as f:
             scene_data = json.load(f)
 
         # --- Process all images in the scene ---
         images = []
         num_frames = 16  # As defined in the generation script
         for frame_idx in range(num_frames):
-            image_path = os.path.join(self.data_dir, sample_info['scene_name'], f"frame_{frame_idx:02d}.png")
+            image_path = os.path.join(self.data_dir, sample_info['scene_name'],
+                                     f"frame_{frame_idx:02d}.png")
             image = Image.open(image_path).convert('RGB')
 
             if self.transform:
@@ -121,7 +129,7 @@ if __name__ == '__main__':
         print(f"Loading dataset from: {DATA_DIRECTORY} with transformations.")
         dataset = SceneDataset(data_dir=DATA_DIRECTORY, transform=image_transform)
 
-        print(f"Dataset loaded successfully.")
+        print("Dataset loaded successfully.")
         # The length is now the number of scenes
         print(f"Total number of scenes in the dataset: {len(dataset)}")
 

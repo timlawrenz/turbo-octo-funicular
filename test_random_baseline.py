@@ -1,3 +1,9 @@
+"""
+Random baseline test for 3D object localization.
+
+This module calculates baseline performance by making random guesses
+for object locations and computing the average error across the dataset.
+"""
 import os
 import json
 import random
@@ -27,8 +33,8 @@ def calculate_random_baseline(data_dir='data'):
 
     for scene_name in scene_folders:
         json_path = os.path.join(data_dir, scene_name, 'scene_data.json')
-        
-        with open(json_path, 'r') as f:
+
+        with open(json_path, 'r', encoding='utf-8') as f:
             scene_data = json.load(f)
 
         # Get the ground truth location of the first object
@@ -43,7 +49,7 @@ def calculate_random_baseline(data_dir='data'):
         predicted_location = [random_x, random_y, random_z]
 
         # --- Calculate Squared Error for this one sample ---
-        squared_error = sum([(gt - pred)**2 for gt, pred in zip(gt_location, predicted_location)])
+        squared_error = sum((gt - pred)**2 for gt, pred in zip(gt_location, predicted_location))
         total_squared_error += squared_error
 
     # --- Calculate and Report the Final Average Loss ---
@@ -54,7 +60,8 @@ def calculate_random_baseline(data_dir='data'):
     print(f"Total scenes processed: {num_scenes}")
     print(f"Average Mean Squared Error (MSE) for Random Guesses: {average_mse:.4f}")
     print(f"Average Root Mean Squared Error (RMSE) for Random Guesses: {average_rmse:.4f}")
-    print(f"\nInterpretation: On average, a random guess is {average_rmse:.2f} units away from the true location.")
+    print(f"\nInterpretation: On average, a random guess is {average_rmse:.2f} "
+          f"units away from the true location.")
 
 
 if __name__ == '__main__':
