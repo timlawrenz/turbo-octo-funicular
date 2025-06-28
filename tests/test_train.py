@@ -82,33 +82,13 @@ class TestTrainModule(unittest.TestCase):
         """Test device selection when CUDA is available."""
         mock_cuda_available.return_value = True
         
-        # We need to mock the entire main function setup to test device selection
-        with patch('train.SceneDataset') as mock_dataset, \
-             patch('train.DataLoader') as mock_dataloader, \
-             patch('train.SceneReconstructionModel') as mock_model, \
-             patch('train.torch.optim.Adam'), \
-             patch('train.nn.MSELoss'), \
+        # We mock SceneDataset to stop execution after device selection
+        with patch('train.SceneDataset', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
-            
-            # Setup mocks
-            mock_dataset_instance = MagicMock()
-            mock_dataset_instance.__len__ = MagicMock(return_value=1)
-            mock_dataset.return_value = mock_dataset_instance
-            
-            mock_dataloader_instance = MagicMock()
-            mock_dataloader_instance.__len__ = MagicMock(return_value=1)
-            mock_dataloader_instance.__iter__ = MagicMock(return_value=iter([]))
-            mock_dataloader.return_value = mock_dataloader_instance
-            
-            mock_model_instance = MagicMock()
-            mock_model_instance.to.return_value = mock_model_instance
-            mock_model_instance.parameters.return_value = []
-            mock_model.return_value = mock_model_instance
-            
             train.main()
-            
-            # Verify CUDA device was selected
-            mock_device.assert_called_with("cuda")
+
+        # Verify CUDA device was selected
+        mock_device.assert_called_with("cuda")
     
     @patch('train.torch.cuda.is_available')
     @patch('train.torch.device')
@@ -116,33 +96,13 @@ class TestTrainModule(unittest.TestCase):
         """Test device selection when CUDA is not available."""
         mock_cuda_available.return_value = False
         
-        # We need to mock the entire main function setup to test device selection
-        with patch('train.SceneDataset') as mock_dataset, \
-             patch('train.DataLoader') as mock_dataloader, \
-             patch('train.SceneReconstructionModel') as mock_model, \
-             patch('train.torch.optim.Adam'), \
-             patch('train.nn.MSELoss'), \
+        # We mock SceneDataset to stop execution after device selection
+        with patch('train.SceneDataset', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
-            
-            # Setup mocks
-            mock_dataset_instance = MagicMock()
-            mock_dataset_instance.__len__ = MagicMock(return_value=1)
-            mock_dataset.return_value = mock_dataset_instance
-            
-            mock_dataloader_instance = MagicMock()
-            mock_dataloader_instance.__len__ = MagicMock(return_value=1)
-            mock_dataloader_instance.__iter__ = MagicMock(return_value=iter([]))
-            mock_dataloader.return_value = mock_dataloader_instance
-            
-            mock_model_instance = MagicMock()
-            mock_model_instance.to.return_value = mock_model_instance
-            mock_model_instance.parameters.return_value = []
-            mock_model.return_value = mock_model_instance
-            
             train.main()
             
-            # Verify CPU device was selected
-            mock_device.assert_called_with("cpu")
+        # Verify CPU device was selected
+        mock_device.assert_called_with("cpu")
     
     def test_image_transform_pipeline(self):
         """Test that image transform pipeline is created correctly."""
