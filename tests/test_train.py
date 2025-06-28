@@ -82,9 +82,11 @@ class TestTrainModule(unittest.TestCase):
         """Test device selection when CUDA is available."""
         mock_cuda_available.return_value = True
         
-        # We mock SceneDataset to stop execution after device selection
-        with patch('train.SceneDataset', side_effect=Exception("stop execution")), \
+        # We mock DataLoader to stop execution after device selection, which is safer
+        with patch('train.SceneDataset') as mock_dataset, \
+             patch('train.DataLoader', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
+            mock_dataset.return_value.__len__.return_value = 10
             train.main()
 
         # Verify CUDA device was selected
@@ -96,9 +98,11 @@ class TestTrainModule(unittest.TestCase):
         """Test device selection when CUDA is not available."""
         mock_cuda_available.return_value = False
         
-        # We mock SceneDataset to stop execution after device selection
-        with patch('train.SceneDataset', side_effect=Exception("stop execution")), \
+        # We mock DataLoader to stop execution after device selection, which is safer
+        with patch('train.SceneDataset') as mock_dataset, \
+             patch('train.DataLoader', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
+            mock_dataset.return_value.__len__.return_value = 10
             train.main()
             
         # Verify CPU device was selected
