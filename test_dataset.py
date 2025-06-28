@@ -1,5 +1,6 @@
 import unittest
 import os
+import sys
 import json
 import tempfile
 import shutil
@@ -7,6 +8,8 @@ from unittest.mock import patch, mock_open, MagicMock
 import torch
 from PIL import Image
 import numpy as np
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dataset import SceneDataset
 

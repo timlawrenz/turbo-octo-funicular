@@ -1,7 +1,11 @@
 import unittest
+import sys
+import os
 import torch
 import torch.nn as nn
 from unittest.mock import patch, MagicMock
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from model import SceneReconstructionModel
 

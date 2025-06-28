@@ -1,11 +1,14 @@
 import unittest
 import os
+import sys
 import tempfile
 import shutil
 from unittest.mock import patch, MagicMock, mock_open
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import train
 from dataset import SceneDataset

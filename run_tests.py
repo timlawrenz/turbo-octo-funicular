@@ -11,9 +11,9 @@ Usage:
     python run_tests.py
     
 Or run individual test modules:
-    python -m unittest test_dataset.py -v
-    python -m unittest test_model.py -v  
-    python -m unittest test_train.py -v
+    python -m unittest tests.test_dataset -v
+    python -m unittest tests.test_model -v  
+    python -m unittest tests.test_train -v
 """
 
 import unittest
@@ -23,7 +23,7 @@ import os
 def run_all_tests():
     """Run all unit tests and return the result."""
     # Discover and run all tests
-    test_suite = unittest.TestLoader().discover('.', pattern='test_*.py')
+    test_suite = unittest.TestLoader().discover('tests', pattern='test_*.py')
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(test_suite)
     
