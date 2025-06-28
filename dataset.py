@@ -54,7 +54,7 @@ class SceneDataset:
         """
         return len(self.samples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx):  # pylint: disable=too-many-locals
         """
         Retrieves a single full scene from the dataset by its index.
 

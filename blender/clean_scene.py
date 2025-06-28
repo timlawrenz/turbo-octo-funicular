@@ -12,7 +12,7 @@ import random
 
 import bpy
 
-def generate_scenes():
+def generate_scenes():  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     """
     Main function to generate a number of scenes.
     """

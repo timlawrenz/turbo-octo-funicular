@@ -9,7 +9,7 @@ import json
 import random
 import math
 
-def calculate_random_baseline(data_dir='data'):
+def calculate_random_baseline(data_dir='data'):  # pylint: disable=too-many-locals
     """
     Calculates the average Mean Squared Error (MSE) by making random guesses
     for object locations across the entire dataset.

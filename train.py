@@ -12,7 +12,7 @@ from torchvision import transforms
 from dataset import SceneDataset
 from model import SceneReconstructionModel
 
-def main():
+def main():  # pylint: disable=too-many-locals
     """
     Main function to set up and run a boilerplate training loop.
     """

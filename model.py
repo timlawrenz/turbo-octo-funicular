@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from torchvision import models
 
-class SceneReconstructionModel(nn.Module):
+class SceneReconstructionModel(nn.Module):  # pylint: disable=too-few-public-methods
     """
     An image encoder model based on a pretrained ResNet.
     It removes the final classification layers of the ResNet and adds a
