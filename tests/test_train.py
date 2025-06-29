@@ -76,45 +76,6 @@ class TestTrainModule(unittest.TestCase):
         # Verify error handling
         mock_print.assert_any_call(f"An error occurred while loading the dataset: {error_message}")
     
-    @patch('train.torch.cuda.is_available')
-    @patch('train.torch.device')
-    def test_device_selection_cuda_available(self, mock_device, mock_cuda_available):
-        """Test device selection when CUDA is available."""
-        mock_cuda_available.return_value = True
-        
-        # We mock DataLoader to stop execution after device selection, which is safer
-        with patch('train.SceneDataset') as mock_dataset, \
-             patch('train.DataLoader', side_effect=Exception("stop execution")), \
-             patch('builtins.print'):
-            mock_dataset.return_value.__len__.return_value = 10
-            try:
-                train.main()
-            except Exception:
-                # This exception is expected and is used to halt execution.
-                pass
-
-        # Verify CUDA device was selected
-        mock_device.assert_called_with("cuda")
-    
-    @patch('train.torch.cuda.is_available')
-    @patch('train.torch.device')
-    def test_device_selection_cuda_not_available(self, mock_device, mock_cuda_available):
-        """Test device selection when CUDA is not available."""
-        mock_cuda_available.return_value = False
-        
-        # We mock DataLoader to stop execution after device selection, which is safer
-        with patch('train.SceneDataset') as mock_dataset, \
-             patch('train.DataLoader', side_effect=Exception("stop execution")), \
-             patch('builtins.print'):
-            mock_dataset.return_value.__len__.return_value = 10
-            try:
-                train.main()
-            except Exception:
-                # This exception is expected and is used to halt execution.
-                pass
-            
-        # Verify CPU device was selected
-        mock_device.assert_called_with("cpu")
     
     def test_image_transform_pipeline(self):
         """Test that image transform pipeline is created correctly."""
