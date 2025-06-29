@@ -87,7 +87,11 @@ class TestTrainModule(unittest.TestCase):
              patch('train.DataLoader', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
             mock_dataset.return_value.__len__.return_value = 10
-            train.main()
+            try:
+                train.main()
+            except Exception:
+                # This exception is expected and is used to halt execution.
+                pass
 
         # Verify CUDA device was selected
         mock_device.assert_called_with("cuda")
@@ -103,7 +107,11 @@ class TestTrainModule(unittest.TestCase):
              patch('train.DataLoader', side_effect=Exception("stop execution")), \
              patch('builtins.print'):
             mock_dataset.return_value.__len__.return_value = 10
-            train.main()
+            try:
+                train.main()
+            except Exception:
+                # This exception is expected and is used to halt execution.
+                pass
             
         # Verify CPU device was selected
         mock_device.assert_called_with("cpu")
